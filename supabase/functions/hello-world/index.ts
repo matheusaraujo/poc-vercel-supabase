@@ -1,32 +1,45 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Setup type definitions for built-in Supabase Runtime APIs
-import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+serve(async (req) => {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
-console.log("Hello from Functions!")
+  if (req.method === "GET") {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(req.headers.get("Authorization")?.replace("Bearer ", ""));
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
 
-Deno.serve(async (req) => {
-  const { name } = await req.json()
-  const data = {
-    message: `Hello ${name}!`,
+    const { data, error } = await supabase.from("tasks").select("*").eq("user_id", user.id);
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    }
+
+    return new Response(JSON.stringify(data), { status: 200 });
   }
 
-  return new Response(
-    JSON.stringify(data),
-    { headers: { "Content-Type": "application/json" } },
-  )
-})
+  if (req.method === "POST") {
+    const { task } = await req.json();
+    if (!task) {
+      return new Response(JSON.stringify({ error: "Task is required" }), { status: 400 });
+    }
 
-/* To invoke locally:
+    const { data: { user }, error: authError } = await supabase.auth.getUser(req.headers.get("Authorization")?.replace("Bearer ", ""));
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
 
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
+    const taskId = crypto.randomUUID();
+    const { data, error } = await supabase.from("tasks").insert([{ id: taskId, user_id: user.id, task }]).select();
 
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/hello-world' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
+    if (error) {
+      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    }
 
-*/
+    return new Response(JSON.stringify(data), { status: 201 });
+  }
+
+  return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
+});

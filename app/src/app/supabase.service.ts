@@ -47,7 +47,9 @@ export class SupabaseService {
   }
 
   signIn(email: string) {
-    return this.supabase.auth.signInWithOtp({ email })
+    return this.supabase.auth.signInWithOtp({ email, options: {
+      emailRedirectTo: window.location.origin,
+    } })
   }
 
   async signInWithGoogle() {
