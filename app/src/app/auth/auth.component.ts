@@ -41,4 +41,8 @@ export class AuthComponent {
       this.loading = false;
     }
   }
+
+  async signInWithGoogle(): Promise<void> {
+    await this.supabase.signInWithGoogle();
+  }
 }

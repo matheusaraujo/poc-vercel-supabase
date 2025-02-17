@@ -50,6 +50,18 @@ export class SupabaseService {
     return this.supabase.auth.signInWithOtp({ email })
   }
 
+  async signInWithGoogle() {
+    const {data, error } = await this.supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (error) console.error('Google Sign-In Error:', error);
+    return data;
+  }
+
   signOut() {
     return this.supabase.auth.signOut()
   }
